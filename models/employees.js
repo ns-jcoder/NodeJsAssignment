@@ -32,11 +32,8 @@ module.exports = function(sequelize, DataTypes) {
 		},
 		role: { // Role could be either user or Admin
 
-			type: DataTypes.STRING,
-			allowNull: false,
-			validate: {
-				len: [4, 10]
-			}
+			type: DataTypes.ENUM('Admin', 'User')
+			
 		},
 		password: {
 				type: DataTypes.VIRTUAL,

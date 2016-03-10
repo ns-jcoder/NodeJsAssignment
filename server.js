@@ -18,26 +18,26 @@ app.get('/', function(req, res) {
 	res.send('Assignment API Root');
 });
 
-
+// ============================================================  Employee Functions Starts here ============================================================ //
 // POST /employees
-app.post('/employees', function (req, res){
-	var body = _.pick(req.body, 'username', 'role', 'password');
+app.post('/employees', function(req, res) {
+	var body = _.pick(req.body, 'emp_name', 'username', 'role', 'password');
 
-	body.id =  employeeId++;
-	console.log('UserName is ',body.username);
-	db.employee.create(body).then(function (employee){
+	//body.id = employeeId++;
+	console.log('UserName is ', body.username);
+	db.employee.create(body).then(function(employee) {
 		res.json(employee);
 	}, function(e) {
 		res.status(400).json(e);
 	})
 
 	//console.log('UserName is ',body.username);
-	
+
 });
 
 
 // GET /employees/:id
-app.get('/employees/:id', function (req, res) {
+app.get('/employees/:id', function(req, res) {
 
 
 	var employeeId = parseInt(req.params.id, 10);
@@ -55,15 +55,15 @@ app.get('/employees/:id', function (req, res) {
 
 
 // GET /employees
-//GET /employees?role=user&q=bond
+//GET /employees?role=User&q=bond
 app.get('/employees', function(req, res) {
 
 	var query = req.query;
 	var where = {};
 
-	if (query.hasOwnProperty('role') && query.role === 'user') {
-		where.role = 'user';
-	} else if (query.hasOwnProperty('role') && query.role === 'user') {
+	if (query.hasOwnProperty('role') && query.role === 'User') {
+		where.role = 'User';
+	} else if (query.hasOwnProperty('role') && query.role === 'User') {
 		where.role = false;
 	}
 
@@ -84,10 +84,182 @@ app.get('/employees', function(req, res) {
 
 });
 
+//PUT  /employees/:id
+app.put('/employees/:id', function(req, res) {
+	var employeeId = parseInt(req.params.id, 10);
+	var body = _.pick(req.body, 'emp_name', 'username');
+	var attributes = {};
+
+	if (body.hasOwnProperty('emp_name')) {
+		attributes.emp_name = body.emp_name;
+	}
+
+	if (body.hasOwnProperty('username')) {
+		attributes.username = body.username;
+	}
+
+	db.employee.findById(employeeId).then(function(employee) {
+		if (employee) {
+			employee.update(attributes).then(function(employee) {
+				res.json(employee.toJSON());
+
+			}, function(e) {
+				res.status(400).json(e);
+			});
+		} else {
+			res.status(404).send();
+		}
+	}, function() {
+		res.status(500).send();
+	});
 
 
-db.sequelize.sync({force:true}).then(function() {
-		app.listen(PORT,function(){
-			 console.log('Assignment Express listening on port '+ PORT);
+});
+
+
+// Delete  /employees/:id
+app.delete('/employees/:id', function(req, res) {
+	var employeeId = parseInt(req.params.id, 10);
+	db.employee.destroy({
+		where: {
+			id: employeeId
+		}
+	}).then(function(rowsDeleted) {
+		if (rowsDeleted === 0) {
+			res.status(404).json({
+				error: 'No employee with id'
+			});
+		} else {
+			res.status(204).send();
+		}
+	}, function() {
+		res.status(500).send();
+	});
+
+});
+
+// ============================================================  Employee Functions Ends here ============================================================ //
+
+
+
+// ============================================================  course Functions Starts here ============================================================ //
+
+/*
+  {
+  	"course_name":"NodeJs",
+    "subsection_id":"107",    
+    "subsection_start_date": "poi564W3",
+    "subsection_end_date": "poi564W3"
+    
+  }
+*/
+
+
+app.post('/addCourses', function(req, res) {
+	var body = _.pick(req.body, 'course_name');
+
+
+	console.log('Course Name is ', body.course_name);
+	db.course.create(body).then(function(course) {
+		res.json(course);
+	}, function(e) {
+		res.status(400).json(e);
+	})
+
+
+});
+
+
+// ============================================================  course Functions Ends here ============================================================ //
+
+
+
+// ============================================================  course_module Functions Starts here ============================================================ //
+
+/*
+  {
+  	"course_module_name":"ES-6",
+     
+    "course_name": "NodeJs"
+       
+  }
+*/
+
+
+app.post('/addCourseModules', function(req, res) {
+	var body = _.pick(req.body, 'course_module_name', 'course_name');
+
+
+	console.log('course_module_name is ', body.course_module_name);
+
+	db.course.findByCourseName(body.course_name).then(function (course) {
+		db.course_module.create({
+			course_module_name: body.course_module_name,
+			courseId: course.id,
+			course_name: body.course_name
 		});
+		res.status(200).send('Created Module Successfully');
+
+	}, function(e) {
+		res.status(400).json(e);
+	});
+});
+
+
+// ============================================================  course_module_subsection Functions Ends here ============================================================ //
+
+
+
+// ============================================================  course_module_subsection Functions Starts here ============================================================ //
+
+/*
+  {
+  	"subsection_name":"Array",
+    "subsection_id":"ss_007",    
+    "course_module_id": "Intro to Node JS",
+    "course_name": "121",
+    "comment":" Understand Arrays" 
+    "subsection_start_date": "poi564W3",
+    "subsection_end_date": "poi564W3"
+    
+  }
+*/
+
+//POST
+app.post('/addCourseModuleSubsections', function(req, res) {
+	var body = _.pick(req.body, 'subsection_name', 'subsection_start_date', 'subsection_end_date', 'course_module_name', 'course_name');
+	console.log('subsection_name is ', body.subsection_name);
+	console.log('course_module_name is ', body.course_module_name);
+	console.log('course_name is ', body.course_name);
+
+	db.course.findByCourseName(body.course_name).then(function(course) {
+			console.log(course.id + body.course_module_name);
+			db.course_module.findByModuleName(body.course_module_name)
+				.then(function(module) {
+					console.log('Module id is :', module.id);
+					db.course_module_subsection.create({
+						subsection_name: body.subsection_name,
+						//courseId: course.id,
+						courseModuleId: module.id,
+						subsection_start_date: body.subsection_start_date,
+						subsection_end_date: body.subsection_end_date
+					});
+				}, function(e) {
+					res.status(400).json(e);
+				});
+
+		},
+		function(e) {
+			res.status(400).json(e);
+		})
+});
+// ============================================================  course_module_subsection Functions Ends here ============================================================ //
+
+
+db.sequelize.sync({
+	//force: true
+}).then(function() {
+	app.listen(PORT, function() {
+		console.log('Assignment Express listening on port ' + PORT);
+	});
 });
