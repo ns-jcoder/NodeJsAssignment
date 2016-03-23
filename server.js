@@ -21,20 +21,40 @@ app.get('/', function(req, res) {
 // ============================================================  Employee Functions Starts here ============================================================ //
 // POST /employees
 app.post('/employees', function(req, res) {
-	var body = _.pick(req.body, 'emp_name', 'username', 'role', 'password');
+	var body = _.pick(req.body, 'emp_name', 'username', 'emp_id', 'role', 'password');
 
 	//body.id = employeeId++;
 	console.log('UserName is ', body.username);
-	db.employee.create(body).then(function(employee) {
-		res.json(employee);
+
+	db.employee.checkExistingEmp(body.emp_id).then(function(employee) {
+		if (body.role == 'Admin') {
+			db.employee.checkAdmin(body.role).then(function(employee) {
+					db.employee.create(body).then(function(employee) {
+						res.json(employee);
+					}, function(e) {
+						res.status(400).json(e);
+					})
+				},
+				function(e) {
+					res.status(400).json(e)
+				})
+		} else if (body.role == 'User') {
+			db.employee.create(body).then(function(employee) {
+				res.json(employee);
+			});
+		} else {
+			res.status(400).json({
+				'Rejection Reason': 'Role should either be Admin or User (case sensitive)'
+			});
+		}
 	}, function(e) {
-		res.status(400).json(e);
-	})
+		res.status(400).json(e)
+	});
+
 
 	//console.log('UserName is ',body.username);
 
 });
-
 
 // GET /employees/:id
 app.get('/employees/:id', function(req, res) {
@@ -119,22 +139,35 @@ app.put('/employees/:id', function(req, res) {
 
 // Delete  /employees/:id
 app.delete('/employees/:id', function(req, res) {
-	var employeeId = parseInt(req.params.id, 10);
-	db.employee.destroy({
-		where: {
-			id: employeeId
+	var employeeId = req.params.id;
+	console.log('emp id to be deleted us ', employeeId);
+	db.employee.findByEmployeeId(employeeId).then(function(employee) {
+		if (employee.role === 'Admin') {
+			
+			res.status(404).json('EmployeeId belongs to Admin User hence cannot be deleted');
+			return
 		}
-	}).then(function(rowsDeleted) {
-		if (rowsDeleted === 0) {
-			res.status(404).json({
-				error: 'No employee with id'
-			});
-		} else {
-			res.status(204).send();
-		}
-	}, function() {
-		res.status(500).send();
+
+		db.employee.destroy({
+			where: {
+				emp_id: employeeId
+			}
+		}).then(function(rowsDeleted) {
+			if (rowsDeleted === 0) {
+				res.status(404).json({
+					error: 'No employee with given id'
+				});
+			} else {
+				res.status(204).send();
+			}
+		}, function() {
+			res.status(500).send();
+		});
+
+	}, function(e) {
+		res.status(400).json(e)
 	});
+
 
 });
 
@@ -192,7 +225,7 @@ app.post('/addCourseModules', function(req, res) {
 
 	console.log('course_module_name is ', body.course_module_name);
 
-	db.course.findByCourseName(body.course_name).then(function (course) {
+	db.course.findByCourseName(body.course_name).then(function(course) {
 		db.course_module.create({
 			course_module_name: body.course_module_name,
 			courseId: course.id,
@@ -227,31 +260,49 @@ app.post('/addCourseModules', function(req, res) {
 
 //POST
 app.post('/addCourseModuleSubsections', function(req, res) {
-	var body = _.pick(req.body, 'subsection_name', 'subsection_start_date', 'subsection_end_date', 'course_module_name', 'course_name');
-	console.log('subsection_name is ', body.subsection_name);
-	console.log('course_module_name is ', body.course_module_name);
-	console.log('course_name is ', body.course_name);
+	var body = _.pick(req.body, 'emp_id', 'subsection_name', 'subsection_start_date', 'subsection_end_date', 'course_module_name', 'course_name');
 
-	db.course.findByCourseName(body.course_name).then(function(course) {
-			console.log(course.id + body.course_module_name);
-			db.course_module.findByModuleName(body.course_module_name)
-				.then(function(module) {
-					console.log('Module id is :', module.id);
-					db.course_module_subsection.create({
-						subsection_name: body.subsection_name,
-						//courseId: course.id,
-						courseModuleId: module.id,
-						subsection_start_date: body.subsection_start_date,
-						subsection_end_date: body.subsection_end_date
-					});
-				}, function(e) {
+	console.log('subsection_name is ', body.subsection_name);
+	console.log('body.emp_id is ', body.emp_id);
+	// console.log('course_name is ', body.course_name);
+
+	db.employee.findByEmployeeId(body.emp_id).then(function(employee) {
+		console.log(employee.role)
+		if (employee.role == 'Admin') {
+			db.course.findByCourseName(body.course_name).then(function(course) {
+
+					console.log('Module id is', course.id);
+					db.course_module.findByModuleName(body.course_module_name)
+						.then(function(module) {
+							console.log('Module id is :', module.id);
+							db.course_module_subsection.create({
+								subsection_name: body.subsection_name,
+								//courseId: course.id,
+								courseModuleId: module.id,
+								subsection_start_date: body.subsection_start_date,
+								subsection_end_date: body.subsection_end_date
+							}).then(function(course_module_subsection) {
+								res.json(course_module_subsection);
+							}, function(e) {
+								res.status(400).json(e);
+							});
+
+						}, function(e) {
+							res.status(400).json(e);
+						});
+				},
+				function(e) {
 					res.status(400).json(e);
 				});
+		} else {
+			res.status(404).send('Not Authoriezed to Created Sub Section ');
+		}
 
-		},
-		function(e) {
-			res.status(400).json(e);
-		})
+	}, function(e) {
+		res.status(400).json(e);
+	});
+
+
 });
 // ============================================================  course_module_subsection Functions Ends here ============================================================ //
 
